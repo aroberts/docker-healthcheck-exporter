@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Health Exporter</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">Docker Health Exporter</a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Docker Container Health Exporter</h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="lead">
+                            This exporter monitors Docker containers with health checks and exposes their status as Prometheus metrics.
+                        </p>
+                        
+                        <h3 class="mt-4">Metrics Endpoint</h3>
+                        <div class="alert alert-info">
+                            <p>Prometheus metrics are available at: <a href="/metrics" class="alert-link">/metrics</a></p>
+                        </div>
+                        
+                        <h3 class="mt-4">Metric Details</h3>
+                        <p>The exporter provides the following metrics:</p>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th>Description</th>
+                                    <th>Labels</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>docker_container_health_status</code></td>
+                                    <td>Health status of Docker containers with health checks</td>
+                                    <td><code>container_id</code>, <code>container_name</code>, <code>image</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <h3 class="mt-4">Status Values</h3>
+                        <p>The health status is represented by the following values:</p>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>Unhealthy</span>
+                                <span class="badge rounded-pill bg-danger">0</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>Healthy</span>
+                                <span class="badge rounded-pill bg-success">1</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>Starting</span>
+                                <span class="badge rounded-pill bg-warning">2</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>No Health Check</span>
+                                <span class="badge rounded-pill bg-secondary">3</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h3>Configuration</h3>
+                    </div>
+                    <div class="card-body">
+                        <p>The exporter can be configured using the following environment variables:</p>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Variable</th>
+                                    <th>Description</th>
+                                    <th>Default</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>POLL_INTERVAL</code></td>
+                                    <td>Interval in seconds to poll Docker API</td>
+                                    <td>15</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer mt-5 py-3 bg-dark">
+        <div class="container text-center">
+            <span class="text-muted">Docker Health Exporter for Prometheus</span>
+        </div>
+    </footer>
+</body>
+</html>

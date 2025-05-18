@@ -1,0 +1,28 @@
+/* Additional styling for Docker Health Exporter */
+
+body {
+    padding-bottom: 60px;
+}
+
+.footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+}
+
+code {
+    background-color: var(--bs-secondary-bg);
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.table {
+    margin-top: 1rem;
+}
+
+.badge {
+    font-size: 0.8rem;
+    min-width: 25px;
+}
