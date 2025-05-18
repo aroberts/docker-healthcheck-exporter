@@ -80,7 +80,21 @@ This feature is useful for including metadata from your containers in your monit
 
 ## Usage with Docker
 
-The simplest way to run this exporter is using Docker:
+### Pre-built Image
+
+You can pull the pre-built Docker image from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/YOUR_USERNAME/docker-health-exporter:latest
+docker run -d --name health-exporter \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -p 5000:5000 \
+  ghcr.io/YOUR_USERNAME/docker-health-exporter:latest
+```
+
+### Building Your Own Image
+
+Alternatively, you can build the image yourself:
 
 ```bash
 docker build -t docker-health-exporter .
@@ -93,6 +107,20 @@ docker run -d --name health-exporter \
 Be sure to mount the Docker socket so the exporter can access the Docker API.
 The connection is made using the python Docker API, and [can be configured from
 the environment](https://docker-py.readthedocs.io/en/stable/client.html#envvar-DOCKER_HOST).
+
+### Environment Variables
+
+You can configure the exporter by passing environment variables to the Docker container:
+
+```bash
+docker run -d --name health-exporter \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -p 5000:5000 \
+  -e POLL_INTERVAL=30 \
+  -e LOG_LEVEL=DEBUG \
+  -e LABEL_MAPPINGS='{"com.example.team":"team"}' \
+  ghcr.io/YOUR_USERNAME/docker-health-exporter:latest
+```
 
 ## Endpoints
 
