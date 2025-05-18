@@ -103,11 +103,16 @@
                                     <td>If set to "true", only monitor containers with <code>prometheus.health.enabled=true</code> label</td>
                                     <td>false</td>
                                 </tr>
+                                <tr>
+                                    <td><code>LABEL_MAPPINGS</code></td>
+                                    <td>JSON object mapping container labels to metric labels. Example: <code>{"com.example.team":"team", "com.example.environment":"env"}</code></td>
+                                    <td>{}</td>
+                                </tr>
                             </tbody>
                         </table>
                         
                         <h3 class="mt-4">Container Labels</h3>
-                        <p>The exporter respects the following container labels:</p>
+                        <p>The exporter respects the following special labels:</p>
                         <table class="table table-striped">
                             <thead>
                                 <tr>
@@ -126,6 +131,28 @@
                                 </tr>
                             </tbody>
                         </table>
+
+                        <h3 class="mt-4">Dynamic Label Mapping</h3>
+                        <p>The exporter can copy container labels to metric labels using the <code>LABEL_MAPPINGS</code> configuration:</p>
+                        
+                        <div class="alert alert-info">
+                            <h4 class="alert-heading">Example</h4>
+                            <p>If you set <code>LABEL_MAPPINGS='{"com.example.team":"team", "com.example.app":"application"}'</code>, then:</p>
+                            <ul>
+                                <li>Container label <code>com.example.team</code> will be mapped to metric label <code>team</code></li>
+                                <li>Container label <code>com.example.app</code> will be mapped to metric label <code>application</code></li>
+                            </ul>
+                            <p>Your metrics will then include these additional labels, which allows filtering and grouping in Prometheus:</p>
+                            <pre class="mb-0"><code>docker_container_health_status{container_id="abc123", container_name="web-server", image="nginx:latest", project="myproject", service="web", team="frontend", application="website"} 1</code></pre>
+                        </div>
+                        
+                        <p class="mt-3">This feature is useful for including metadata from your containers in your monitoring system, such as:</p>
+                        <ul>
+                            <li>Team ownership information</li>
+                            <li>Environment information (prod, staging, test)</li> 
+                            <li>Application or service identifiers</li>
+                            <li>Custom business-relevant metadata</li>
+                        </ul>
                     </div>
                 </div>
             </div>

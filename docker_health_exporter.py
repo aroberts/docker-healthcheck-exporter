@@ -3,6 +3,7 @@ import time
 import logging
 import docker
 import threading
+import json
 from flask import Flask, render_template, Response
 from prometheus_client import Gauge, generate_latest, REGISTRY, CONTENT_TYPE_LATEST
 
@@ -12,18 +13,35 @@ logger = logging.getLogger(__name__)
 # Check if we're in opt-in only mode
 OPT_IN_ONLY = os.environ.get("OPT_IN_ONLY", "false").lower() == "true"
 
-# Prometheus metrics
+# Parse label mapping configuration
+LABEL_MAPPINGS = {}
+LABEL_MAPPINGS_ENV = os.environ.get("LABEL_MAPPINGS", "{}")
+try:
+    LABEL_MAPPINGS = json.loads(LABEL_MAPPINGS_ENV)
+    logger.info(f"Loaded label mappings: {LABEL_MAPPINGS}")
+except json.JSONDecodeError as e:
+    logger.error(f"Failed to parse LABEL_MAPPINGS environment variable: {e}")
+    logger.error(f"Using default empty mapping. LABEL_MAPPINGS was: {LABEL_MAPPINGS_ENV}")
+
+# Define base labels for metrics
+BASE_LABELS = ['container_id', 'container_name', 'image', 'project', 'service']
+
+# Add custom labels from LABEL_MAPPINGS
+CUSTOM_LABELS = list(LABEL_MAPPINGS.values())
+ALL_LABELS = BASE_LABELS + CUSTOM_LABELS
+
+# Prometheus metrics with dynamic labels
 CONTAINER_HEALTH = Gauge(
     'docker_container_health_status',
     'Health status of Docker containers with health checks (0=unhealthy, 1=healthy, 2=starting, 3=no health check)',
-    ['container_id', 'container_name', 'image', 'project', 'service']
+    ALL_LABELS
 )
 
 # Health failure streak metric
 HEALTH_FAILURE_STREAK = Gauge(
     'docker_container_health_failure_streak',
     'Number of consecutive health check failures for Docker containers',
-    ['container_id', 'container_name', 'image', 'project', 'service']
+    ALL_LABELS
 )
 
 # Health status mapping
@@ -96,8 +114,11 @@ class DockerHealthCollector:
             container: Docker container object
             
         Returns:
-            tuple: (container_id, container_name, image_name, health_status, failure_streak, project, service)
+            dict: Dictionary with all container metadata and labels
         """
+        result = {}
+        
+        # Extract basic container information
         container_id = container.id[:12]  # Short ID
         container_name = container.name
         image_name = container.image.tags[0] if container.image.tags else container.image.id[:12]
@@ -121,7 +142,23 @@ class DockerHealthCollector:
             health_status = health_info['Status']
             failure_streak = health_info.get('FailingStreak', 0)
         
-        return container_id, container_name, image_name, health_status, failure_streak, project, service
+        # Store base values in result dictionary
+        result = {
+            'container_id': container_id,
+            'container_name': container_name,
+            'image': image_name,
+            'project': project,
+            'service': service,
+            'health_status': health_status,
+            'failure_streak': failure_streak
+        }
+        
+        # Get custom label mappings from container labels
+        for container_label, metric_label in LABEL_MAPPINGS.items():
+            result[metric_label] = labels.get(container_label, '')
+            logger.debug(f"Mapped container label {container_label} to metric label {metric_label}: {result[metric_label]}")
+            
+        return result
         
     def update_metrics(self):
         """Update Prometheus metrics with current container health statuses."""
@@ -146,27 +183,28 @@ class DockerHealthCollector:
                             logger.debug(f"Skipping container {container_name} based on monitoring policy")
                             continue
                             
-                        container_id, container_name, image_name, health_status, failure_streak, project, service = self.get_container_health(container)
+                        # Get container health data including any custom labels
+                        container_data = self.get_container_health(container)
                         
-                        # Update health status metric
-                        CONTAINER_HEALTH.labels(
-                            container_id=container_id,
-                            container_name=container_name,
-                            image=image_name,
-                            project=project,
-                            service=service
-                        ).set(HEALTH_STATUS.get(health_status, 3))
+                        # Prepare label dictionary for Prometheus metrics
+                        metric_labels = {}
+                        for label_name in ALL_LABELS:
+                            metric_labels[label_name] = container_data.get(label_name, '')
                         
-                        # Update failure streak metric
-                        HEALTH_FAILURE_STREAK.labels(
-                            container_id=container_id,
-                            container_name=container_name,
-                            image=image_name,
-                            project=project,
-                            service=service
-                        ).set(failure_streak)
+                        # Update health status metric with all labels
+                        CONTAINER_HEALTH.labels(**metric_labels).set(HEALTH_STATUS.get(container_data['health_status'], 3))
                         
-                        logger.debug(f"Container {container_name} ({container_id}) health: {health_status}, failure streak: {failure_streak}, project: {project}, service: {service}")
+                        # Update failure streak metric with all labels
+                        HEALTH_FAILURE_STREAK.labels(**metric_labels).set(container_data['failure_streak'])
+                        
+                        # Log basic info and indicate if custom labels were used
+                        extra_labels = ""
+                        if LABEL_MAPPINGS:
+                            extra_labels = ", with custom labels"
+                            
+                        logger.debug(f"Container {container_data['container_name']} ({container_data['container_id']}) "
+                                     f"health: {container_data['health_status']}, "
+                                     f"failure streak: {container_data['failure_streak']}{extra_labels}")
                     except Exception as e:
                         container_id = getattr(container, 'id', 'unknown')[:12] if hasattr(container, 'id') else 'unknown'
                         logger.error(f"Error processing container {container_id}: {e}")
