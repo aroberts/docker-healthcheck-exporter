@@ -10,3 +10,14 @@ dependencies = [
     "markdown>=3.8",
     "prometheus-client>=0.22.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
