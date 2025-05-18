@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 # Check if we're in opt-in only mode
 OPT_IN_ONLY = os.environ.get("OPT_IN_ONLY", "false").lower() == "true"
 
+# Check if we should skip default labels
+NO_DEFAULT_LABELS = os.environ.get("NO_DEFAULT_LABELS", "false").lower() == "true"
+
 # Parse label mapping configuration
 LABEL_MAPPINGS = {}
 LABEL_MAPPINGS_ENV = os.environ.get("LABEL_MAPPINGS", "{}")
@@ -28,7 +31,17 @@ BASE_LABELS = ['container_id', 'container_name', 'image', 'project', 'service']
 
 # Add custom labels from LABEL_MAPPINGS
 CUSTOM_LABELS = list(LABEL_MAPPINGS.values())
-ALL_LABELS = BASE_LABELS + CUSTOM_LABELS
+
+# Determine which labels to use based on NO_DEFAULT_LABELS setting
+if NO_DEFAULT_LABELS:
+    logger.info("NO_DEFAULT_LABELS is set to true, using only custom labels from LABEL_MAPPINGS")
+    ALL_LABELS = CUSTOM_LABELS
+    # We must ensure we have at least one label or Prometheus will error
+    if not CUSTOM_LABELS:
+        logger.warning("NO_DEFAULT_LABELS is true but no custom labels defined in LABEL_MAPPINGS, using container_id as required label")
+        ALL_LABELS = ['container_id']
+else:
+    ALL_LABELS = BASE_LABELS + CUSTOM_LABELS
 
 # Prometheus metrics with dynamic labels
 CONTAINER_HEALTH = Gauge(
@@ -118,45 +131,62 @@ class DockerHealthCollector:
         """
         result = {}
         
-        # Extract basic container information
-        container_id = container.id[:12]  # Short ID
-        container_name = container.name
-        image_name = container.image.tags[0] if container.image.tags else container.image.id[:12]
-        
-        # Extract compose project and service labels
-        labels = container.attrs.get('Config', {}).get('Labels', {})
-        project = labels.get('com.docker.compose.project', '')
-        service = labels.get('com.docker.compose.service', '')
-        
-        # For Docker Swarm, use different labels
-        if not project:
-            project = labels.get('com.docker.stack.namespace', '')
-        if not service:
-            service = labels.get('com.docker.swarm.service.name', '')
-        
-        # Check if container has health check
-        health_status = 'none'
-        failure_streak = 0
-        if hasattr(container, 'attrs') and 'Health' in container.attrs.get('State', {}):
-            health_info = container.attrs['State']['Health']
-            health_status = health_info['Status']
-            failure_streak = health_info.get('FailingStreak', 0)
-        
-        # Store base values in result dictionary
-        result = {
-            'container_id': container_id,
-            'container_name': container_name,
-            'image': image_name,
-            'project': project,
-            'service': service,
-            'health_status': health_status,
-            'failure_streak': failure_streak
-        }
-        
-        # Get custom label mappings from container labels
-        for container_label, metric_label in LABEL_MAPPINGS.items():
-            result[metric_label] = labels.get(container_label, '')
-            logger.debug(f"Mapped container label {container_label} to metric label {metric_label}: {result[metric_label]}")
+        try:
+            # Extract basic container information
+            container_id = container.id[:12] if hasattr(container, 'id') else 'unknown'  # Short ID
+            container_name = container.name if hasattr(container, 'name') else 'unknown'
+            
+            if hasattr(container, 'image'):
+                image_name = container.image.tags[0] if hasattr(container.image, 'tags') and container.image.tags else container.image.id[:12]
+            else:
+                image_name = 'unknown'
+            
+            # Get all container labels
+            labels = container.attrs.get('Config', {}).get('Labels', {}) if hasattr(container, 'attrs') else {}
+            
+            # Extract compose project and service labels
+            project = labels.get('com.docker.compose.project', '')
+            service = labels.get('com.docker.compose.service', '')
+            
+            # For Docker Swarm, use different labels
+            if not project:
+                project = labels.get('com.docker.stack.namespace', '')
+            if not service:
+                service = labels.get('com.docker.swarm.service.name', '')
+            
+            # Check if container has health check
+            health_status = 'none'
+            failure_streak = 0
+            if hasattr(container, 'attrs') and 'Health' in container.attrs.get('State', {}):
+                health_info = container.attrs['State']['Health']
+                health_status = health_info['Status']
+                failure_streak = health_info.get('FailingStreak', 0)
+            
+            # Store all values in result dictionary, even if we're not using default labels
+            # This makes it easier to access health status and failure streak values
+            result = {
+                'container_id': container_id,
+                'container_name': container_name,
+                'image': image_name,
+                'project': project,
+                'service': service,
+                'health_status': health_status,
+                'failure_streak': failure_streak
+            }
+            
+            # Get custom label mappings from container labels
+            for container_label, metric_label in LABEL_MAPPINGS.items():
+                result[metric_label] = labels.get(container_label, '')
+                logger.debug(f"Mapped container label {container_label} to metric label {metric_label}: {result[metric_label]}")
+                
+        except Exception as e:
+            logger.error(f"Error getting container health info: {e}")
+            # Ensure we have minimal fields for metrics
+            result = {
+                'container_id': getattr(container, 'id', 'unknown')[:12] if hasattr(container, 'id') else 'unknown',
+                'health_status': 'none',
+                'failure_streak': 0
+            }
             
         return result
         

@@ -108,6 +108,11 @@
                                     <td>JSON object mapping container labels to metric labels. Example: <code>{"com.example.team":"team", "com.example.environment":"env"}</code></td>
                                     <td>{}</td>
                                 </tr>
+                                <tr>
+                                    <td><code>NO_DEFAULT_LABELS</code></td>
+                                    <td>If set to "true", only labels defined in LABEL_MAPPINGS will be included in metrics</td>
+                                    <td>false</td>
+                                </tr>
                             </tbody>
                         </table>
                         
@@ -144,6 +149,11 @@
                             </ul>
                             <p>Your metrics will then include these additional labels, which allows filtering and grouping in Prometheus:</p>
                             <pre class="mb-0"><code>docker_container_health_status{container_id="abc123", container_name="web-server", image="nginx:latest", project="myproject", service="web", team="frontend", application="website"} 1</code></pre>
+                            
+                            <h5 class="mt-3">Custom Labels Only</h5>
+                            <p>If you want to use only your custom labels without the default ones, set <code>NO_DEFAULT_LABELS=true</code>:</p>
+                            <pre class="mb-0"><code>docker_container_health_status{team="frontend", application="website"} 1</code></pre>
+                            <p><small>Note: When using NO_DEFAULT_LABELS, at least one custom label must be defined in LABEL_MAPPINGS.</small></p>
                         </div>
                         
                         <p class="mt-3">This feature is useful for including metadata from your containers in your monitoring system, such as:</p>
