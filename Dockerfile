@@ -19,6 +19,7 @@ ENV OPT_IN_ONLY=false
 ENV NO_DEFAULT_LABELS=false
 ENV LABEL_MAPPINGS="{}"
 ENV LOG_LEVEL=INFO
+ENV DEBUG=false
 
 # Expose port for the web interface
 EXPOSE 5000
