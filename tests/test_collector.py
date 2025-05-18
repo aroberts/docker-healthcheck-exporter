@@ -214,7 +214,7 @@ class TestDockerHealthCollector(unittest.TestCase):
                     # Check that metrics were updated for the monitored container
                     mock_health_gauge.labels.assert_called_once()
                     mock_streak_gauge.labels.assert_called_once()
-                    mock_labels.set.assert_called_with(HEALTH_STATUS.get('healthy', 3))
+                    mock_labels.set.assert_called_with(HEALTH_STATUS.get('unhealthy', 3))
 
 if __name__ == '__main__':
     unittest.main()

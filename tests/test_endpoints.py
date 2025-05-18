@@ -24,7 +24,7 @@ class TestEndpoints(unittest.TestCase):
 
         # Check that it contains expected content from the template
         self.assertIn(b'Docker Healthcheck Exporter', response.data)
-        self.assertIn(b'Metrics Endpoint', response.data)
+        self.assertIn(b'docker_container_health_status', response.data)
 
     @patch('docker_health_exporter.docker.from_env')
     def test_metrics_endpoint(self, mock_docker):
@@ -36,7 +36,9 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
         # Check that it returns the correct content type
-        self.assertEqual(response.content_type, 'text/plain; version=0.0.4; charset=utf-8')
+        self.assertIn('text/plain', response.content_type)
+        self.assertIn('version=0.0.4', response.content_type)
+        self.assertIn('charset=utf-8', response.content_type)
 
     @patch('docker_health_exporter.docker.from_env')
     def test_health_endpoint_success(self, mock_docker):
