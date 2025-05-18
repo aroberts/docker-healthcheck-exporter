@@ -13,7 +13,14 @@ logger = logging.getLogger(__name__)
 CONTAINER_HEALTH = Gauge(
     'docker_container_health_status',
     'Health status of Docker containers with health checks (0=unhealthy, 1=healthy, 2=starting, 3=no health check)',
-    ['container_id', 'container_name', 'image']
+    ['container_id', 'container_name', 'image', 'project', 'service']
+)
+
+# Health failure streak metric
+HEALTH_FAILURE_STREAK = Gauge(
+    'docker_container_health_failure_streak',
+    'Number of consecutive health check failures for Docker containers',
+    ['container_id', 'container_name', 'image', 'project', 'service']
 )
 
 # Health status mapping
@@ -44,7 +51,7 @@ class DockerHealthCollector:
             self.docker_client = docker.from_env()
             logger.info("Successfully connected to Docker API")
             return True
-        except docker.errors.DockerException as e:
+        except Exception as e:
             logger.error(f"Failed to connect to Docker API: {e}")
             return False
             
@@ -56,18 +63,32 @@ class DockerHealthCollector:
             container: Docker container object
             
         Returns:
-            tuple: (container_id, container_name, image_name, health_status)
+            tuple: (container_id, container_name, image_name, health_status, failure_streak, project, service)
         """
         container_id = container.id[:12]  # Short ID
         container_name = container.name
         image_name = container.image.tags[0] if container.image.tags else container.image.id[:12]
         
+        # Extract compose project and service labels
+        labels = container.attrs.get('Config', {}).get('Labels', {})
+        project = labels.get('com.docker.compose.project', '')
+        service = labels.get('com.docker.compose.service', '')
+        
+        # For Docker Swarm, use different labels
+        if not project:
+            project = labels.get('com.docker.stack.namespace', '')
+        if not service:
+            service = labels.get('com.docker.swarm.service.name', '')
+        
         # Check if container has health check
         health_status = 'none'
+        failure_streak = 0
         if hasattr(container, 'attrs') and 'Health' in container.attrs.get('State', {}):
-            health_status = container.attrs['State']['Health']['Status']
+            health_info = container.attrs['State']['Health']
+            health_status = health_info['Status']
+            failure_streak = health_info.get('FailingStreak', 0)
         
-        return container_id, container_name, image_name, health_status
+        return container_id, container_name, image_name, health_status, failure_streak, project, service
         
     def update_metrics(self):
         """Update Prometheus metrics with current container health statuses."""
@@ -83,21 +104,32 @@ class DockerHealthCollector:
             # Update health metrics for each container
             for container in containers:
                 try:
-                    container_id, container_name, image_name, health_status = self.get_container_health(container)
+                    container_id, container_name, image_name, health_status, failure_streak, project, service = self.get_container_health(container)
+                    
+                    # Update health status metric
                     CONTAINER_HEALTH.labels(
                         container_id=container_id,
                         container_name=container_name,
-                        image=image_name
+                        image=image_name,
+                        project=project,
+                        service=service
                     ).set(HEALTH_STATUS.get(health_status, 3))
                     
-                    logger.debug(f"Container {container_name} ({container_id}) health: {health_status}")
+                    # Update failure streak metric
+                    HEALTH_FAILURE_STREAK.labels(
+                        container_id=container_id,
+                        container_name=container_name,
+                        image=image_name,
+                        project=project,
+                        service=service
+                    ).set(failure_streak)
+                    
+                    logger.debug(f"Container {container_name} ({container_id}) health: {health_status}, failure streak: {failure_streak}, project: {project}, service: {service}")
                 except Exception as e:
                     logger.error(f"Error processing container {container.id}: {e}")
                     
-        except docker.errors.APIError as e:
-            logger.error(f"Docker API error: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error updating metrics: {e}")
+            logger.error(f"Error updating metrics: {e}")
             
     def start_polling(self):
         """Start polling Docker API in a separate thread."""

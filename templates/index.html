@@ -45,7 +45,12 @@
                                 <tr>
                                     <td><code>docker_container_health_status</code></td>
                                     <td>Health status of Docker containers with health checks</td>
-                                    <td><code>container_id</code>, <code>container_name</code>, <code>image</code></td>
+                                    <td><code>container_id</code>, <code>container_name</code>, <code>image</code>, <code>project</code>, <code>service</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>docker_container_health_failure_streak</code></td>
+                                    <td>Number of consecutive health check failures for Docker containers</td>
+                                    <td><code>container_id</code>, <code>container_name</code>, <code>image</code>, <code>project</code>, <code>service</code></td>
                                 </tr>
                             </tbody>
                         </table>
