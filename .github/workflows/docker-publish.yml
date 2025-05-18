@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -42,6 +42,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=schedule,pattern={{date 'YYYY-MM-DD'}}
             type=ref,event=branch
             type=ref,event=pr
             type=sha,format=long
@@ -56,13 +57,3 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
-          
-      - name: Update Docker Hub description
-        if: github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v')
-        uses: peter-evans/dockerhub-description@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ github.repository_owner }}/docker-health-exporter
-          readme-filepath: ./README.md
-          short-description: "Prometheus exporter for Docker container health checks"
