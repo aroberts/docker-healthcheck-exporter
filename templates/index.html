@@ -1,188 +1,27 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Docker Health Exporter</title>
-    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        img {
+            max-width: 100%;
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">Docker Health Exporter</a>
-        </div>
-    </nav>
-
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-lg-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h2>Docker Container Health Exporter</h2>
-                    </div>
-                    <div class="card-body">
-                        <p class="lead">
-                            This exporter monitors Docker containers with health checks and exposes their status as Prometheus metrics.
-                        </p>
-
-                        <h3 class="mt-4">Metrics Endpoint</h3>
-                        <div class="alert alert-info">
-                            <p>Prometheus metrics are available at: <a href="/metrics" class="alert-link">/metrics</a></p>
-                        </div>
-
-                        <h3 class="mt-4">Metric Details</h3>
-                        <p>The exporter provides the following metrics:</p>
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Metric</th>
-                                    <th>Description</th>
-                                    <th>Labels</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td><code>docker_container_health_status</code></td>
-                                    <td>Health status of Docker containers with health checks</td>
-                                    <td><code>container_id</code>, <code>container_name</code>, <code>image</code>, <code>stack</code>, <code>service</code></td>
-                                </tr>
-                                <tr>
-                                    <td><code>docker_container_health_failure_streak</code></td>
-                                    <td>Number of consecutive health check failures for Docker containers</td>
-                                    <td><code>container_id</code>, <code>container_name</code>, <code>image</code>, <code>stack</code>, <code>service</code></td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <h3 class="mt-4">Status Values</h3>
-                        <p>The health status is represented by the following values:</p>
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span>Unhealthy</span>
-                                <span class="badge rounded-pill bg-danger">0</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span>Healthy</span>
-                                <span class="badge rounded-pill bg-success">1</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span>Starting</span>
-                                <span class="badge rounded-pill bg-warning">2</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span>No Health Check</span>
-                                <span class="badge rounded-pill bg-secondary">3</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h3>Configuration</h3>
-                    </div>
-                    <div class="card-body">
-                        <p>The exporter can be configured using the following environment variables:</p>
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Variable</th>
-                                    <th>Description</th>
-                                    <th>Default</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td><code>POLL_INTERVAL</code></td>
-                                    <td>Interval in seconds to poll Docker API</td>
-                                    <td>15</td>
-                                </tr>
-                                <tr>
-                                    <td><code>OPT_IN_ONLY</code></td>
-                                    <td>If set to "true", only monitor containers with <code>prometheus.health.enabled=true</code> label</td>
-                                    <td>false</td>
-                                </tr>
-                                <tr>
-                                    <td><code>LABEL_MAPPINGS</code></td>
-                                    <td>JSON object mapping container labels to metric labels. Example: <code>{"com.example.team":"team", "com.example.environment":"env"}</code></td>
-                                    <td>{}</td>
-                                </tr>
-                                <tr>
-                                    <td><code>NO_DEFAULT_LABELS</code></td>
-                                    <td>If set to "true", only labels defined in LABEL_MAPPINGS will be included in metrics</td>
-                                    <td>false</td>
-                                </tr>
-                                <tr>
-                                    <td><code>LOG_LEVEL</code></td>
-                                    <td>Sets the application's logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)</td>
-                                    <td>INFO</td>
-                                </tr>
-                                <tr>
-                                    <td><code>DEBUG</code></td>
-                                    <td>If set to "true", runs Flask in Debug mode</td>
-                                    <td>false</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <h3 class="mt-4">Container Labels</h3>
-                        <p>The exporter respects the following special labels:</p>
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Label</th>
-                                    <th>Description</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td><code>prometheus.health.enabled=false</code></td>
-                                    <td>Explicitly opt out a container from health monitoring</td>
-                                </tr>
-                                <tr>
-                                    <td><code>prometheus.health.enabled=true</code></td>
-                                    <td>Explicitly opt in a container for health monitoring (required when <code>OPT_IN_ONLY=true</code>)</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <h3 class="mt-4">Dynamic Label Mapping</h3>
-                        <p>The exporter can copy container labels to metric labels using the <code>LABEL_MAPPINGS</code> configuration:</p>
-
-                        <div class="alert alert-info">
-                            <h4 class="alert-heading">Example</h4>
-                            <p>If you set <code>LABEL_MAPPINGS='{"com.example.team":"team", "com.example.app":"application"}'</code>, then:</p>
-                            <ul>
-                                <li>Container label <code>com.example.team</code> will be mapped to metric label <code>team</code></li>
-                                <li>Container label <code>com.example.app</code> will be mapped to metric label <code>application</code></li>
-                            </ul>
-                            <p>Your metrics will then include these additional labels, which allows filtering and grouping in Prometheus:</p>
-                            <pre class="mb-0"><code>docker_container_health_status{container_id="abc123", container_name="web-server", image="nginx:latest", stack="mystack", service="web", team="frontend", application="website"} 1</code></pre>
-
-                            <h5 class="mt-3">Custom Labels Only</h5>
-                            <p>If you want to use only your custom labels without the default ones, set <code>NO_DEFAULT_LABELS=true</code>:</p>
-                            <pre class="mb-0"><code>docker_container_health_status{team="frontend", application="website"} 1</code></pre>
-                            <p><small>Note: When using NO_DEFAULT_LABELS, at least one custom label must be defined in LABEL_MAPPINGS.</small></p>
-                        </div>
-
-                        <p class="mt-3">This feature is useful for including metadata from your containers in your monitoring system, such as:</p>
-                        <ul>
-                            <li>Team ownership information</li>
-                            <li>Environment information (prod, staging, test)</li>
-                            <li>Application or service identifiers</li>
-                            <li>Custom business-relevant metadata</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <footer class="footer mt-5 py-3 bg-dark">
-        <div class="container text-center">
-            <span class="text-muted">Docker Health Exporter for Prometheus</span>
-        </div>
-    </footer>
+    {{ content | safe }}
 </body>
 </html>

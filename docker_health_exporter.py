@@ -3,6 +3,7 @@ import time
 import logging
 import docker
 import threading
+import markdown
 import json
 from flask import Flask, render_template, Response
 from prometheus_client import Gauge, generate_latest, REGISTRY, CONTENT_TYPE_LATEST
@@ -283,7 +284,17 @@ def create_app():
     @app.route('/')
     def index():
         """Render the main monitoring page."""
-        return render_template('index.html')
+        readme_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'README.md')
+        # Read the README.md file
+        try:
+            with open(readme_path, 'r', encoding='utf-8') as file:
+                readme_content = file.read()
+        except FileNotFoundError:
+            return "Error: Could not find README.md", 500
+
+        # Convert markdown to HTML
+        html_content = markdown.markdown(readme_content, extensions=['extra', 'codehilite'])
+        return render_template('index.html', content=html_content)
 
     @app.route('/metrics')
     def metrics():
