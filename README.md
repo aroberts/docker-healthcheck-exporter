@@ -1,10 +1,13 @@
-# Docker Health Exporter
+# Docker Healthcheck Exporter
 
-A Python-based Prometheus exporter that monitors Docker container health checks and exposes their status as metrics.
+A Python-based Prometheus exporter that monitors Docker container health checks
+and exposes their status as metrics.
 
 ## Overview
 
-This exporter monitors Docker containers with health checks and exposes their status as Prometheus metrics. It allows you to track the health status of your containers and receive alerts when containers become unhealthy.
+This exporter monitors Docker containers with health checks and exposes their
+status as Prometheus metrics. It allows you to track the health status of your
+containers and receive alerts when containers become unhealthy.
 
 ## Metrics
 
@@ -34,7 +37,7 @@ The exporter can be configured using the following environment variables:
 | `OPT_IN_ONLY` | If set to "true", only monitor containers with `prometheus.health.enabled=true` label | false |
 | `LABEL_MAPPINGS` | JSON object mapping container labels to metric labels | `{}` |
 | `NO_DEFAULT_LABELS` | If set to "true", only labels defined in LABEL_MAPPINGS will be included in metrics | false |
-| `LOG_LEVEL` | Sets the application's logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL) | INFO |
+| `LOG_LEVEL` | Sets the application's logging verbosity (`debug`, `info`, `warning`, `error`, `critical`) | `info` |
 | `DEBUG` | If set to "true", runs Flask in Debug mode | false |
 
 ## Container Labels
@@ -85,7 +88,7 @@ This feature is useful for including metadata from your containers in your monit
 You can pull the pre-built Docker image from GitHub Container Registry:
 
 ```bash
-docker pull ghcr.io/YOUR_USERNAME/docker-health-exporter:latest
+docker pull ghcr.io/aroberts/docker-health-exporter:latest
 docker run -d --name health-exporter \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -p 5000:5000 \
@@ -105,8 +108,9 @@ docker run -d --name health-exporter \
 ```
 
 Be sure to mount the Docker socket so the exporter can access the Docker API.
-The connection is made using the python Docker API, and [can be configured from
-the environment](https://docker-py.readthedocs.io/en/stable/client.html#envvar-DOCKER_HOST).
+If you'd rather not mount the socket, the connection is made using the python
+Docker API, and [can be configured from the
+environment](https://docker-py.readthedocs.io/en/stable/client.html#envvar-DOCKER_HOST).
 
 ### Environment Variables
 
@@ -117,7 +121,7 @@ docker run -d --name health-exporter \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -p 5000:5000 \
   -e POLL_INTERVAL=30 \
-  -e LOG_LEVEL=DEBUG \
+  -e LOG_LEVEL=debug \
   -e LABEL_MAPPINGS='{"com.example.team":"team"}' \
   ghcr.io/YOUR_USERNAME/docker-health-exporter:latest
 ```

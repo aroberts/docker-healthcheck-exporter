@@ -23,7 +23,7 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
         # Check that it contains expected content from the template
-        self.assertIn(b'Docker Container Health Exporter', response.data)
+        self.assertIn(b'Docker Healthcheck Exporter', response.data)
         self.assertIn(b'Metrics Endpoint', response.data)
 
     @patch('docker_health_exporter.docker.from_env')
