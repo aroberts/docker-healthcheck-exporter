@@ -8,7 +8,7 @@ from flask import Flask, render_template, Response
 from prometheus_client import Gauge, generate_latest, REGISTRY, CONTENT_TYPE_LATEST
 
 # Configure logging based on environment variable
-log_level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
+log_level_name = os.environ.get("LOG_LEVEL", "info").upper()
 log_level = getattr(logging, log_level_name, logging.INFO)
 logging.basicConfig(
     level=log_level,
@@ -34,7 +34,7 @@ except json.JSONDecodeError as e:
     logger.error(f"Using default empty mapping. LABEL_MAPPINGS was: {LABEL_MAPPINGS_ENV}")
 
 # Define base labels for metrics
-BASE_LABELS = ['container_id', 'container_name', 'image', 'project', 'service']
+BASE_LABELS = ['container_id', 'container_name', 'image', 'stack', 'service']
 
 # Add custom labels from LABEL_MAPPINGS
 CUSTOM_LABELS = list(LABEL_MAPPINGS.values())
@@ -74,18 +74,18 @@ HEALTH_STATUS = {
 
 class DockerHealthCollector:
     """Collector for Docker container health metrics."""
-    
+
     def __init__(self, poll_interval=15):
         """
         Initialize the Docker health collector.
-        
+
         Args:
             poll_interval (int): Interval in seconds to poll Docker API
         """
         self.poll_interval = poll_interval
         self.docker_client = None
         self.running = False
-        
+
     def connect_to_docker(self):
         """Establish connection to Docker API."""
         try:
@@ -95,14 +95,14 @@ class DockerHealthCollector:
         except Exception as e:
             logger.error(f"Failed to connect to Docker API: {e}")
             return False
-            
+
     def should_monitor_container(self, container):
         """
         Determine if a container should be monitored based on labels.
-        
+
         Args:
             container: Docker container object
-            
+
         Returns:
             bool: True if the container should be monitored, False otherwise
         """
@@ -110,57 +110,57 @@ class DockerHealthCollector:
             # Get container labels
             labels = container.attrs.get('Config', {}).get('Labels', {})
             container_name = container.name if hasattr(container, 'name') else 'unknown'
-            
+
             # Check if container is explicitly opted out
             if labels.get('prometheus.health.enabled', '').lower() == 'false':
                 logger.debug(f"Container {container_name} opted out of monitoring via label")
                 return False
-                
+
             # If OPT_IN_ONLY is true, check if container is explicitly opted in
             if OPT_IN_ONLY and labels.get('prometheus.health.enabled', '').lower() != 'true':
                 logger.debug(f"Container {container_name} not monitored - OPT_IN_ONLY mode and not opted in")
                 return False
-                
+
             return True
         except Exception as e:
             logger.error(f"Error determining monitoring status for container: {e}")
             return False
-        
+
     def get_container_health(self, container):
         """
         Get health status of a container.
-        
+
         Args:
             container: Docker container object
-            
+
         Returns:
             dict: Dictionary with all container metadata and labels
         """
         result = {}
-        
+
         try:
             # Extract basic container information
             container_id = container.id[:12] if hasattr(container, 'id') else 'unknown'  # Short ID
             container_name = container.name if hasattr(container, 'name') else 'unknown'
-            
+
             if hasattr(container, 'image'):
                 image_name = container.image.tags[0] if hasattr(container.image, 'tags') and container.image.tags else container.image.id[:12]
             else:
                 image_name = 'unknown'
-            
+
             # Get all container labels
             labels = container.attrs.get('Config', {}).get('Labels', {}) if hasattr(container, 'attrs') else {}
-            
-            # Extract compose project and service labels
-            project = labels.get('com.docker.compose.project', '')
+
+            # Extract compose stack and service labels
+            stack = labels.get('com.docker.compose.project', '')
             service = labels.get('com.docker.compose.service', '')
-            
+
             # For Docker Swarm, use different labels
-            if not project:
-                project = labels.get('com.docker.stack.namespace', '')
+            if not stack:
+                stack = labels.get('com.docker.stack.namespace', '')
             if not service:
                 service = labels.get('com.docker.swarm.service.name', '')
-            
+
             # Check if container has health check
             health_status = 'none'
             failure_streak = 0
@@ -168,24 +168,24 @@ class DockerHealthCollector:
                 health_info = container.attrs['State']['Health']
                 health_status = health_info['Status']
                 failure_streak = health_info.get('FailingStreak', 0)
-            
+
             # Store all values in result dictionary, even if we're not using default labels
             # This makes it easier to access health status and failure streak values
             result = {
                 'container_id': container_id,
                 'container_name': container_name,
                 'image': image_name,
-                'project': project,
+                'stack': stack,
                 'service': service,
                 'health_status': health_status,
                 'failure_streak': failure_streak
             }
-            
+
             # Get custom label mappings from container labels
             for container_label, metric_label in LABEL_MAPPINGS.items():
                 result[metric_label] = labels.get(container_label, '')
                 logger.debug(f"Mapped container label {container_label} to metric label {metric_label}: {result[metric_label]}")
-                
+
         except Exception as e:
             logger.error(f"Error getting container health info: {e}")
             # Ensure we have minimal fields for metrics
@@ -194,51 +194,51 @@ class DockerHealthCollector:
                 'health_status': 'none',
                 'failure_streak': 0
             }
-            
+
         return result
-        
+
     def update_metrics(self):
         """Update Prometheus metrics with current container health statuses."""
         if not self.docker_client:
             if not self.connect_to_docker():
                 logger.warning("Skipping metrics update due to Docker connection failure")
                 return
-                
+
         try:
             # Get all running containers
             if self.docker_client and hasattr(self.docker_client, 'containers'):
                 containers = self.docker_client.containers.list(all=False)
-                
+
                 # Update health metrics for each container
                 for container in containers:
                     try:
                         # Get container name for logging
                         container_name = container.name if hasattr(container, 'name') else str(container.id)[:12]
-                        
+
                         # Check if this container should be monitored based on labels
                         if not self.should_monitor_container(container):
                             logger.debug(f"Skipping container {container_name} based on monitoring policy")
                             continue
-                            
+
                         # Get container health data including any custom labels
                         container_data = self.get_container_health(container)
-                        
+
                         # Prepare label dictionary for Prometheus metrics
                         metric_labels = {}
                         for label_name in ALL_LABELS:
                             metric_labels[label_name] = container_data.get(label_name, '')
-                        
+
                         # Update health status metric with all labels
                         CONTAINER_HEALTH.labels(**metric_labels).set(HEALTH_STATUS.get(container_data['health_status'], 3))
-                        
+
                         # Update failure streak metric with all labels
                         HEALTH_FAILURE_STREAK.labels(**metric_labels).set(container_data['failure_streak'])
-                        
+
                         # Log basic info and indicate if custom labels were used
                         extra_labels = ""
                         if LABEL_MAPPINGS:
                             extra_labels = ", with custom labels"
-                            
+
                         logger.debug(f"Container {container_data['container_name']} ({container_data['container_id']}) "
                                      f"health: {container_data['health_status']}, "
                                      f"failure streak: {container_data['failure_streak']}{extra_labels}")
@@ -247,10 +247,10 @@ class DockerHealthCollector:
                         logger.error(f"Error processing container {container_id}: {e}")
             else:
                 logger.error("Docker client is not properly initialized or missing containers attribute")
-                    
+
         except Exception as e:
             logger.error(f"Error updating metrics: {e}")
-            
+
     def start_polling(self):
         """Start polling Docker API in a separate thread."""
         def poll_loop():
@@ -261,11 +261,11 @@ class DockerHealthCollector:
                 except Exception as e:
                     logger.error(f"Error in polling thread: {e}")
                 time.sleep(self.poll_interval)
-                
+
         self.running = True
         polling_thread = threading.Thread(target=poll_loop, daemon=True)
         polling_thread.start()
-        
+
     def stop_polling(self):
         """Stop the polling thread."""
         self.running = False
@@ -273,23 +273,23 @@ class DockerHealthCollector:
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
-    
+
     # Create and start the Docker health collector
     collector = DockerHealthCollector(
         poll_interval=int(os.environ.get("POLL_INTERVAL", "15"))
     )
     collector.start_polling()
-    
+
     @app.route('/')
     def index():
         """Render the main monitoring page."""
         return render_template('index.html')
-    
+
     @app.route('/metrics')
     def metrics():
         """Expose Prometheus metrics endpoint."""
         return Response(generate_latest(REGISTRY), mimetype=CONTENT_TYPE_LATEST)
-    
+
     @app.route('/health')
     def health():
         """Health check endpoint."""
@@ -297,5 +297,5 @@ def create_app():
             return {"status": "ok", "message": "Connected to Docker API"}
         else:
             return {"status": "error", "message": "Not connected to Docker API"}, 500
-    
+
     return app

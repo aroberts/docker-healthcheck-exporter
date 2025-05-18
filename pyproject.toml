@@ -1,14 +1,11 @@
 [project]
-name = "repl-nix-workspace"
+name = "docker-healthcheck-exporter"
 version = "0.1.0"
-description = "Add your description here"
+description = "Publish Prometheus metrics for docker healthchecks"
 requires-python = ">=3.11"
 dependencies = [
     "docker>=7.1.0",
-    "email-validator>=2.2.0",
     "flask>=3.1.1",
-    "flask-sqlalchemy>=3.1.1",
     "gunicorn>=23.0.0",
     "prometheus-client>=0.22.0",
-    "psycopg2-binary>=2.9.10",
 ]
