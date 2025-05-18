@@ -98,6 +98,32 @@
                                     <td>Interval in seconds to poll Docker API</td>
                                     <td>15</td>
                                 </tr>
+                                <tr>
+                                    <td><code>OPT_IN_ONLY</code></td>
+                                    <td>If set to "true", only monitor containers with <code>prometheus.health.enabled=true</code> label</td>
+                                    <td>false</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <h3 class="mt-4">Container Labels</h3>
+                        <p>The exporter respects the following container labels:</p>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Label</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>prometheus.health.enabled=false</code></td>
+                                    <td>Explicitly opt out a container from health monitoring</td>
+                                </tr>
+                                <tr>
+                                    <td><code>prometheus.health.enabled=true</code></td>
+                                    <td>Explicitly opt in a container for health monitoring (required when <code>OPT_IN_ONLY=true</code>)</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>

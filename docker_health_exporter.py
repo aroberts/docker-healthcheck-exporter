@@ -9,6 +9,9 @@ from prometheus_client import Gauge, generate_latest, REGISTRY, CONTENT_TYPE_LAT
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Check if we're in opt-in only mode
+OPT_IN_ONLY = os.environ.get("OPT_IN_ONLY", "false").lower() == "true"
+
 # Prometheus metrics
 CONTAINER_HEALTH = Gauge(
     'docker_container_health_status',
@@ -55,6 +58,36 @@ class DockerHealthCollector:
             logger.error(f"Failed to connect to Docker API: {e}")
             return False
             
+    def should_monitor_container(self, container):
+        """
+        Determine if a container should be monitored based on labels.
+        
+        Args:
+            container: Docker container object
+            
+        Returns:
+            bool: True if the container should be monitored, False otherwise
+        """
+        try:
+            # Get container labels
+            labels = container.attrs.get('Config', {}).get('Labels', {})
+            container_name = container.name if hasattr(container, 'name') else 'unknown'
+            
+            # Check if container is explicitly opted out
+            if labels.get('prometheus.health.enabled', '').lower() == 'false':
+                logger.debug(f"Container {container_name} opted out of monitoring via label")
+                return False
+                
+            # If OPT_IN_ONLY is true, check if container is explicitly opted in
+            if OPT_IN_ONLY and labels.get('prometheus.health.enabled', '').lower() != 'true':
+                logger.debug(f"Container {container_name} not monitored - OPT_IN_ONLY mode and not opted in")
+                return False
+                
+            return True
+        except Exception as e:
+            logger.error(f"Error determining monitoring status for container: {e}")
+            return False
+        
     def get_container_health(self, container):
         """
         Get health status of a container.
@@ -99,34 +132,46 @@ class DockerHealthCollector:
                 
         try:
             # Get all running containers
-            containers = self.docker_client.containers.list(all=False)
-            
-            # Update health metrics for each container
-            for container in containers:
-                try:
-                    container_id, container_name, image_name, health_status, failure_streak, project, service = self.get_container_health(container)
-                    
-                    # Update health status metric
-                    CONTAINER_HEALTH.labels(
-                        container_id=container_id,
-                        container_name=container_name,
-                        image=image_name,
-                        project=project,
-                        service=service
-                    ).set(HEALTH_STATUS.get(health_status, 3))
-                    
-                    # Update failure streak metric
-                    HEALTH_FAILURE_STREAK.labels(
-                        container_id=container_id,
-                        container_name=container_name,
-                        image=image_name,
-                        project=project,
-                        service=service
-                    ).set(failure_streak)
-                    
-                    logger.debug(f"Container {container_name} ({container_id}) health: {health_status}, failure streak: {failure_streak}, project: {project}, service: {service}")
-                except Exception as e:
-                    logger.error(f"Error processing container {container.id}: {e}")
+            if self.docker_client and hasattr(self.docker_client, 'containers'):
+                containers = self.docker_client.containers.list(all=False)
+                
+                # Update health metrics for each container
+                for container in containers:
+                    try:
+                        # Get container name for logging
+                        container_name = container.name if hasattr(container, 'name') else str(container.id)[:12]
+                        
+                        # Check if this container should be monitored based on labels
+                        if not self.should_monitor_container(container):
+                            logger.debug(f"Skipping container {container_name} based on monitoring policy")
+                            continue
+                            
+                        container_id, container_name, image_name, health_status, failure_streak, project, service = self.get_container_health(container)
+                        
+                        # Update health status metric
+                        CONTAINER_HEALTH.labels(
+                            container_id=container_id,
+                            container_name=container_name,
+                            image=image_name,
+                            project=project,
+                            service=service
+                        ).set(HEALTH_STATUS.get(health_status, 3))
+                        
+                        # Update failure streak metric
+                        HEALTH_FAILURE_STREAK.labels(
+                            container_id=container_id,
+                            container_name=container_name,
+                            image=image_name,
+                            project=project,
+                            service=service
+                        ).set(failure_streak)
+                        
+                        logger.debug(f"Container {container_name} ({container_id}) health: {health_status}, failure streak: {failure_streak}, project: {project}, service: {service}")
+                    except Exception as e:
+                        container_id = getattr(container, 'id', 'unknown')[:12] if hasattr(container, 'id') else 'unknown'
+                        logger.error(f"Error processing container {container_id}: {e}")
+            else:
+                logger.error("Docker client is not properly initialized or missing containers attribute")
                     
         except Exception as e:
             logger.error(f"Error updating metrics: {e}")
