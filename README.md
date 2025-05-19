@@ -92,7 +92,7 @@ docker pull ghcr.io/aroberts/docker-health-exporter:latest
 docker run -d --name health-exporter \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -p 5000:5000 \
-  ghcr.io/YOUR_USERNAME/docker-health-exporter:latest
+  ghcr.io/aroberts/docker-health-exporter:latest
 ```
 
 ### Building Your Own Image
@@ -123,7 +123,7 @@ docker run -d --name health-exporter \
   -e POLL_INTERVAL=30 \
   -e LOG_LEVEL=debug \
   -e LABEL_MAPPINGS='{"com.example.team":"team"}' \
-  ghcr.io/YOUR_USERNAME/docker-health-exporter:latest
+  ghcr.io/aroberts/docker-health-exporter:latest
 ```
 
 ## Endpoints
